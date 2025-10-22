@@ -1,6 +1,8 @@
 use hound::{WavReader, WavWriter};
 use realfft::RealFftPlanner;
-use std::path::Path;
+use std::borrow::Cow;
+use std::fs;
+use std::path::{Path, PathBuf};
 
 // =============================================================================
 // CONSTANTS - Watermark configuration
@@ -10,12 +12,14 @@ use std::path::Path;
 // Alternating 0s and 1s give us clear separation between high and low magnitudes
 pub const PILOT_PATTERN: [u8; 8] = [0, 1, 0, 1, 0, 1, 0, 1];
 
-
+const START_BIN: usize = 10;
 
 // Sample normalization divisor for i16 -> f32 conversion
 const SAMPLE_DIVISOR: f32 = 32768.0;
 
-
+const SAMPLE_RATES: [u32; 3] = [8000, 16_000, 32_000];
+const FRAME_DURATIONS_MS: [u32; 3] = [20, 32, 64];
+const WATERMARK_STRENGTHS: [u32; 4] = [5, 15, 30, 50];
 
 // Input and output file paths
 const INPUT_PATH: &str = concat!(
@@ -33,19 +37,58 @@ const OUTPUT_PATH: &str = concat!(
 
 pub fn encode_sample(message: &str) {
     // Step 1: Load audio and get normalized samples + metadata
-    let (normalized, spec) = load_and_normalize_audio(Path::new(INPUT_PATH));
+    let (base_samples, base_spec) = load_and_normalize_audio(Path::new(INPUT_PATH));
 
     // Step 2: Build the bit sequence (pilot + length + message)
     let bits = build_bit_sequence(message);
 
-    // Step 3: Embed bits into audio via FFT processing
-    let encoded = embed_watermark_fft(&normalized, &bits);
+    // Step 3: Iterate through experiment grid and emit each combination
+    for &target_rate in SAMPLE_RATES.iter() {
+        let samples_for_rate: Cow<[f32]> = if target_rate == base_spec.sample_rate {
+            Cow::Borrowed(base_samples.as_slice())
+        } else {
+            Cow::Owned(resample_audio(
+                base_samples.as_slice(),
+                base_spec.sample_rate,
+                target_rate,
+            ))
+        };
 
-    // Step 4: Convert back to i16 samples
-    let quantized = quantize_to_i16(encoded);
+        let mut spec_for_rate = base_spec.clone();
+        spec_for_rate.sample_rate = target_rate;
 
-    // Step 5: Write the watermarked audio to disk
-    write_wav_file(Path::new(OUTPUT_PATH), &quantized, spec);
+        for &frame_ms in FRAME_DURATIONS_MS.iter() {
+            let frame_len = frame_length_samples(target_rate, frame_ms);
+            if frame_len <= START_BIN {
+                println!(
+                    "Skipping configuration {} Hz / {} ms: frame length too small",
+                    target_rate, frame_ms
+                );
+                continue;
+            }
+
+            for &strength_percent in WATERMARK_STRENGTHS.iter() {
+                let strength = strength_percent as f32 / 100.0;
+
+                // Step 3: Embed bits into audio via FFT processing
+                let encoded =
+                    embed_watermark_fft(samples_for_rate.as_ref(), &bits, frame_len, strength);
+
+                // Step 4: Convert back to i16 samples
+                let quantized = quantize_to_i16(encoded);
+
+                // Step 5: Write the watermarked audio to disk
+                let output_path = experiment_output_path(target_rate, frame_ms, strength_percent);
+                write_wav_file(&output_path, &quantized, spec_for_rate.clone());
+
+                if target_rate == base_spec.sample_rate && frame_ms == 32 && strength_percent == 15
+                {
+                    // Maintain legacy output for decoder convenience
+                    write_wav_file(Path::new(OUTPUT_PATH), &quantized, spec_for_rate.clone());
+                }
+            }
+        }
+    }
 }
 
 // =============================================================================
@@ -57,21 +100,18 @@ fn load_and_normalize_audio(input_path: &Path) -> (Vec<f32>, hound::WavSpec) {
 
     let mut reader = WavReader::open(input_path).expect("failed to open wav file");
 
-
     // Read and normalize samples in a single pass: i16 -> f32 in [-1.0, 1.0]
     let mut normalized: Vec<f32> = Vec::new();
 
     for sample_result in reader.samples::<i16>() {
-       
         let sample = sample_result.expect("failed to open sound file");
         let normalized_sample = (sample as f32) / SAMPLE_DIVISOR;
 
         normalized.push(normalized_sample);
-
     }
 
     let spec = reader.spec();
-    
+
     println!(
         "Read and normalized {} samples at {} Hz",
         normalized.len(),
@@ -84,7 +124,6 @@ fn load_and_normalize_audio(input_path: &Path) -> (Vec<f32>, hound::WavSpec) {
 // =============================================================================
 // STEP 2: Build bit sequence (pilot + length + message)
 // =============================================================================
-
 
 fn build_bit_sequence(message: &str) -> Vec<u8> {
     let message_bytes = message.as_bytes();
@@ -101,7 +140,7 @@ fn build_bit_sequence(message: &str) -> Vec<u8> {
     }
 
     // Position:  15 14 13 12 11 10  9  8  7  6  5  4  3  2  1  0
-                                                 // Binary:     0  0  0  0  0  0  0  0  0  0  0  0  0  1  0  1
+    // Binary:     0  0  0  0  0  0  0  0  0  0  0  0  0  1  0  1
 
     // 3. Message payload (8 bits per byte, MSB first)
     for &byte in message_bytes {
@@ -127,9 +166,7 @@ fn build_bit_sequence(message: &str) -> Vec<u8> {
 // STEP 3: Embed watermark using FFT
 // =============================================================================
 
-fn embed_watermark_fft(audio: &[f32], bits: &[u8]) -> Vec<f32> {
-    let frame_len = (8000.0 * 0.032) as usize;  // 8000 Hz * 32ms = 256 samples
-
+fn embed_watermark_fft(audio: &[f32], bits: &[u8], frame_len: usize, strength: f32) -> Vec<f32> {
     let mut planner = RealFftPlanner::<f32>::new();
     let fft = planner.plan_fft_forward(frame_len);
     let ifft = planner.plan_fft_inverse(frame_len);
@@ -142,10 +179,14 @@ fn embed_watermark_fft(audio: &[f32], bits: &[u8]) -> Vec<f32> {
     let mut spectrum = fft.make_output_vec();
     let mut output = Vec::new();
 
+    if START_BIN >= spectrum.len() {
+        return audio.to_vec();
+    }
+
     // Process each frame
     for chunk in audio.chunks(frame_len) {
         // Load audio
-        buffer[..frame_len].fill(0.0); //wipe clean every time becasue multiple iterations
+        buffer.fill(0.0); // wipe clean every time because multiple iterations
         buffer[..chunk.len()].copy_from_slice(chunk); //copies chunk into our empty slots
 
         // Time → Frequency
@@ -163,15 +204,20 @@ fn embed_watermark_fft(audio: &[f32], bits: &[u8]) -> Vec<f32> {
         // &1     ←──→  bin11
         // &0     ←──→  bin12
         // &1     ←──→  bin13
-         // ...
-        for (&bit, bin) in bits.iter().zip(&mut spectrum[10..]) {
-            let scale = if bit == 1 { 2.0 } else { 0.0 };
+        // ...
+        for (&bit, bin) in bits.iter().zip(&mut spectrum[START_BIN..]) {
+            let scale = if bit == 1 {
+                1.0 + strength
+            } else {
+                (1.0 - strength).max(0.0)
+            };
             bin.re *= scale;
             bin.im *= scale;
         }
 
         // Frequency → Time
-        ifft.process(&mut spectrum, &mut buffer).expect("IFFT failed");
+        ifft.process(&mut spectrum, &mut buffer)
+            .expect("IFFT failed");
 
         // Normalize and append
         output.extend(buffer[..chunk.len()].iter().map(|x| x / frame_len as f32));
@@ -196,12 +242,57 @@ fn quantize_to_i16(encoded: Vec<f32>) -> Vec<i16> {
 // =============================================================================
 
 fn write_wav_file(output_path: &Path, quantized: &[i16], spec: hound::WavSpec) {
+    if let Some(parent) = output_path.parent() {
+        if let Err(err) = fs::create_dir_all(parent) {
+            panic!(
+                "failed to create output directory {}: {err}",
+                parent.display()
+            );
+        }
+    }
+
     let mut writer = WavWriter::create(output_path, spec).expect("failed to create wav writer");
-    
+
     for &sample in quantized {
         writer.write_sample(sample).expect("failed to write sample");
     }
-    
+
     writer.finalize().expect("failed to finalize wav file");
     println!("Wrote watermarked audio to {}", output_path.display());
+}
+
+fn experiment_output_path(sample_rate: u32, frame_ms: u32, strength_percent: u32) -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("output_data")
+        .join(format!("{sample_rate}_{frame_ms}_{strength_percent}.wav"))
+}
+
+fn frame_length_samples(sample_rate: u32, frame_ms: u32) -> usize {
+    (((sample_rate as f32) * (frame_ms as f32) / 1000.0).round() as usize).max(1)
+}
+
+fn resample_audio(samples: &[f32], original_rate: u32, target_rate: u32) -> Vec<f32> {
+    if samples.is_empty() || original_rate == target_rate {
+        return samples.to_vec();
+    }
+
+    let ratio = target_rate as f32 / original_rate as f32;
+    let new_len = ((samples.len() as f32) * ratio).ceil() as usize;
+    let mut output = Vec::with_capacity(new_len);
+
+    for idx in 0..new_len {
+        let src_pos = idx as f32 / ratio;
+        let base = src_pos.floor() as usize;
+        let frac = src_pos - base as f32;
+
+        if base + 1 < samples.len() {
+            let start = samples[base];
+            let end = samples[base + 1];
+            output.push(start + (end - start) * frac);
+        } else if let Some(&last) = samples.last() {
+            output.push(last);
+        }
+    }
+
+    output
 }
