@@ -7,7 +7,8 @@ use realfft::RealFftPlanner; // perform FFTs
 // --- Decoder configuration mirroring the encoder ---
 const PILOT_PATTERN: [u8; 8] = [0, 1, 0, 1, 0, 1, 0, 1]; // known pilot
 const LENGTH_HEADER_BITS: usize = 16; // payload length field
-const WATERMARK_FRAME_DURATION: f32 = 0.032; // frame duration (32ms)
+const DEFAULT_FRAME_DURATION: f32 = 0.032; // frame duration (32ms)
+const DEFAULT_STRENGTH: f32 = 0.15; // matches legacy encoder strength
 const SAMPLE_DIVISOR: f32 = 32768.0; // i16 -> f32 scale
 const START_BIN: usize = 10; // first watermark bin
 
@@ -17,12 +18,62 @@ pub struct DecodedWatermark {
     pub raw_bytes: Vec<u8>, // raw byte payload
 }
 
+#[derive(Clone, Copy)]
+pub struct DecodeConfig {
+    pub frame_duration: f32, // seconds
+    pub strength: f32,       // 0.0 - 1.0 (percentage / 100)
+    pub sample_rate_hint: Option<u32>,
+}
+
+impl DecodeConfig {
+    pub fn new(frame_duration_ms: u32, strength_percent: u32) -> Self {
+        Self {
+            frame_duration: (frame_duration_ms.max(1) as f32) / 1000.0,
+            strength: (strength_percent as f32 / 100.0).clamp(0.01, 0.5),
+            sample_rate_hint: None,
+        }
+    }
+
+    pub fn with_sample_rate(mut self, sample_rate: u32) -> Self {
+        self.sample_rate_hint = Some(sample_rate);
+        self
+    }
+}
+
+impl Default for DecodeConfig {
+    fn default() -> Self {
+        Self {
+            frame_duration: DEFAULT_FRAME_DURATION,
+            strength: DEFAULT_STRENGTH,
+            sample_rate_hint: None,
+        }
+    }
+}
+
 /// Blindly decode the watermark from the provided path.
-pub fn decode_watermarked_sample(path: impl AsRef<Path>) -> DecodedWatermark {
+pub fn decode_watermarked_sample(path: impl AsRef<Path>, config: DecodeConfig) -> DecodedWatermark {
     println!("=== Audio Watermark Decoder (Blind) ===\n"); // header
 
     let (samples, sample_rate) = load_audio(path.as_ref()); // load waveform
-    let (scores, votes, valid, skipped) = summarise_frames(&samples, sample_rate, 3); // aggregate frame stats
+    if let Some(expected_rate) = config.sample_rate_hint {
+        if sample_rate != expected_rate {
+            println!(
+                "Note: filename implies {} Hz but file reports {} Hz",
+                expected_rate, sample_rate
+            );
+        }
+    }
+    println!(
+        "Decoding with {:.3} s frames (~{} ms)",
+        config.frame_duration,
+        (config.frame_duration * 1000.0).round() as u32
+    );
+    println!(
+        "Expected watermark strength: {:.1}%",
+        config.strength * 100.0
+    );
+    let (scores, votes, valid, skipped) =
+        summarise_frames(&samples, sample_rate, config.frame_duration); // aggregate frame stats
 
     if scores.len() < PILOT_PATTERN.len() + LENGTH_HEADER_BITS {
         panic!("not enough spectral bins to recover watermark"); // guard
@@ -36,7 +87,14 @@ pub fn decode_watermarked_sample(path: impl AsRef<Path>) -> DecodedWatermark {
         avg_high, avg_low, threshold
     );
 
-    let bits = decide_bits(&scores, &votes, threshold, avg_high, avg_low); // convert scores to bits
+    let bits = decide_bits(
+        &scores,
+        &votes,
+        threshold,
+        avg_high,
+        avg_low,
+        config.strength,
+    ); // convert scores to bits
 
     let (pilot_bits, remainder) = bits.split_at(PILOT_PATTERN.len()); // separate pilot
     let pilot_matches = pilot_bits
@@ -92,18 +150,25 @@ pub fn default_watermarked_path() -> PathBuf {
         .join("output_data")
         .join("OSR_us_000_0057_8k_watermarked.wav")
 }
+pub fn default_config() -> DecodeConfig {
+    DecodeConfig::default()
+}
 
 // --- Frame analysis helpers -------------------------------------------------
 
 fn summarise_frames(
     samples: &[f32],
     sample_rate: u32,
-    window_radius: usize,
+    frame_duration: f32,
 ) -> (Vec<f32>, Vec<f32>, usize, usize) {
-    let frame_len = ((sample_rate as f32 * WATERMARK_FRAME_DURATION)
-        .round()
-        .max(1.0)) as usize; // samples per frame
-    let fft_len = frame_len.next_power_of_two().max(2); // FFT size
+    let frame_len = ((sample_rate as f32 * frame_duration).round().max(1.0)) as usize; // samples per frame
+    if frame_len <= START_BIN {
+        panic!(
+            "frame length {} (from {:.3}s @ {} Hz) insufficient for decoding",
+            frame_len, frame_duration, sample_rate
+        );
+    }
+    let fft_len = frame_len; // match encoder FFT size
 
     println!("Processing {} samples", samples.len());
     println!(
@@ -123,6 +188,7 @@ fn summarise_frames(
     let mut vote_counts = vec![0u32; usable_bins]; // per-bin “1” votes
     let mut valid_frames = 0usize; // accepted frames
     let mut skipped_frames = 0usize; // rejected frames
+    let window_radius = adaptive_window_radius(usable_bins);
 
     let mut offset = 0usize; // frame pointer
     while offset < samples.len() {
@@ -196,6 +262,18 @@ fn summarise_frames(
         .collect(); // convert to ratios
 
     (medians, ratios, valid_frames, skipped_frames) // summary
+}
+
+fn adaptive_window_radius(usable_bins: usize) -> usize {
+    if usable_bins <= 1 {
+        return 1;
+    }
+    let mut radius = usable_bins / 20; // ~5% of bins on each side
+    if radius == 0 {
+        radius = 1;
+    }
+    radius = radius.min(10);
+    radius
 }
 
 fn spectral_scores(magnitudes: &[f32], window_radius: usize) -> Vec<f32> {
@@ -287,8 +365,13 @@ fn decide_bits(
     threshold: f32,
     avg_high: f32,
     avg_low: f32,
+    strength: f32,
 ) -> Vec<u8> {
-    let decision_band = (avg_high - avg_low) * 0.1; // hysteresis
+    let strength = strength.clamp(0.01, 0.5);
+    let score_span = (avg_high - avg_low).abs();
+    let decision_band = score_span * (0.05 + strength * 0.1); // wider band for stronger marks
+    let ratio_margin = 0.02 + strength * 0.15; // tighten ratio expectations with stronger marks
+    let header_ratio_margin = ratio_margin * 0.6;
 
     scores
         .iter()
@@ -297,17 +380,25 @@ fn decide_bits(
         .map(|(idx, (&score, &ratio))| {
             let in_length_header =
                 (PILOT_PATTERN.len()..PILOT_PATTERN.len() + LENGTH_HEADER_BITS).contains(&idx); // header segments
-            let bit = if in_length_header {
-                u8::from(ratio >= 0.54 && score >= threshold)
-            } else if score >= threshold {
+            if in_length_header {
+                if ratio >= 0.5 + header_ratio_margin && score >= threshold - decision_band * 0.5 {
+                    1
+                } else if ratio <= 0.5 - header_ratio_margin && score <= threshold {
+                    0
+                } else {
+                    u8::from(score >= threshold)
+                }
+            } else if score >= threshold + decision_band {
                 1 // confident one
             } else if score <= threshold - decision_band {
                 0 // confident zero
+            } else if ratio >= 0.5 + ratio_margin {
+                1
+            } else if ratio <= 0.5 - ratio_margin {
+                0
             } else {
-                u8::from(ratio >= 0.48 || score >= threshold - decision_band * 0.5)
-                // soft fallback
-            };
-            bit
+                u8::from(score >= threshold)
+            }
         })
         .collect()
 }
