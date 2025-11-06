@@ -255,7 +255,7 @@ fn summarise_frames(
             medians.push(*median);
         }
     }
-
+    
     let ratios = vote_counts
         .into_iter()
         .map(|votes| votes as f32 / valid_frames as f32)
@@ -275,6 +275,7 @@ fn adaptive_window_radius(usable_bins: usize) -> usize {
     radius = radius.min(10);
     radius
 }
+
 
 fn spectral_scores(magnitudes: &[f32], window_radius: usize) -> Vec<f32> {
     let epsilon = 1e-12f32; // avoid log(0)

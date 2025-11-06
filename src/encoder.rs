@@ -17,7 +17,7 @@ const START_BIN: usize = 10;
 // Sample normalization divisor for i16 -> f32 conversion
 const SAMPLE_DIVISOR: f32 = 32768.0;
 
-const SAMPLE_RATES: [u32; 3] = [8000, 16_000, 32_000];
+const SAMPLE_RATES: [u32; 4] = [8000, 16_000, 32_000, 48_000];
 const FRAME_DURATIONS_MS: [u32; 3] = [20, 32, 64];
 const WATERMARK_STRENGTHS: [u32; 4] = [5, 15, 30, 50];
 
