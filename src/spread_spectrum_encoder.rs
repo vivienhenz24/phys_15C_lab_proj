@@ -17,7 +17,10 @@ const SAMPLE_RATES: [u32; 4] = [8000, 16_000, 32_000, 48_000];
 const FRAME_DURATIONS_MS: [u32; 3] = [20, 32, 64];
 const WATERMARK_STRENGTHS: [u32; 4] = [5, 15, 30, 50];
 
-const INPUT_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/input_data/OSR_us_000_0057_8k.wav");
+const INPUT_PATH: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/input_data/OSR_us_000_0057_8k.wav"
+);
 const OUTPUT_PATH: &str = concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/output_data/spectrum/OSR_us_000_0057_8k_watermarked.wav"
@@ -51,12 +54,8 @@ pub fn encode_spread_spectrum(message: &str) {
             for &strength_percent in WATERMARK_STRENGTHS.iter() {
                 let strength = (strength_percent as f32 / 100.0) * 7.0; // boost for spread-spectrum
 
-                let encoded = embed_watermark_spread(
-                    samples_for_rate.as_slice(),
-                    &bits,
-                    frame_len,
-                    strength,
-                );
+                let encoded =
+                    embed_watermark_spread(samples_for_rate.as_slice(), &bits, frame_len, strength);
 
                 let quantized = quantize_to_i16(encoded);
 
@@ -122,7 +121,8 @@ fn embed_watermark_spread(audio: &[f32], bits: &[u8], frame_len: usize, strength
             // keep same bit for next REPEAT_FACTOR-1 frames
         }
 
-        ifft.process(&mut spectrum, &mut buffer).expect("IFFT failed");
+        ifft.process(&mut spectrum, &mut buffer)
+            .expect("IFFT failed");
         output.extend(buffer[..chunk.len()].iter().map(|x| x / frame_len as f32));
         frame_index += 1;
     }
@@ -139,7 +139,11 @@ fn pn_value(bit_seed: u32, tap: u32) -> f32 {
     x ^= x << 13;
     x ^= x >> 17;
     x ^= x << 5;
-    if (x & 1) == 0 { 1.0 } else { -1.0 }
+    if (x & 1) == 0 {
+        1.0
+    } else {
+        -1.0
+    }
 }
 
 fn load_and_normalize_audio(input_path: &Path) -> (Vec<f32>, hound::WavSpec) {
@@ -252,5 +256,3 @@ fn resample_audio(samples: &[f32], original_rate: u32, target_rate: u32) -> Vec<
 
     output
 }
-
-
