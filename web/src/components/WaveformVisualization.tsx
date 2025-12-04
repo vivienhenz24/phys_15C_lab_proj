@@ -89,7 +89,7 @@ export default function WaveformVisualization({
 
       // Draw title
       ctx.fillStyle = '#fff';
-      ctx.font = 'bold 14px sans-serif';
+      ctx.font = 'bold 14px "Helvetica Neue", Helvetica, Arial, sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText(label, width / 2, 15);
     };

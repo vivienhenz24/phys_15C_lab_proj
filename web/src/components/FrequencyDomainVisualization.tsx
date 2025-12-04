@@ -152,7 +152,7 @@ export default function FrequencyDomainVisualization({
       // Draw bit value label on watermark bins
       if (isWatermarkBin && decodedBit !== null && barHeight > 10) {
         ctx.fillStyle = '#fff';
-        ctx.font = 'bold 10px sans-serif';
+        ctx.font = 'bold 10px "Helvetica Neue", Helvetica, Arial, sans-serif';
         ctx.textAlign = 'center';
         ctx.fillText(
           decodedBit.toString(),
@@ -190,7 +190,7 @@ export default function FrequencyDomainVisualization({
 
     // Draw labels
     ctx.fillStyle = '#fff';
-    ctx.font = '12px sans-serif';
+    ctx.font = '12px "Helvetica Neue", Helvetica, Arial, sans-serif';
     ctx.textAlign = 'center';
     
     // X-axis label
@@ -204,7 +204,7 @@ export default function FrequencyDomainVisualization({
     ctx.restore();
 
     // Draw frequency bin numbers for watermark region
-    ctx.font = '10px sans-serif';
+    ctx.font = '10px "Helvetica Neue", Helvetica, Arial, sans-serif';
     ctx.fillStyle = '#fff';
     for (let i = startBin; i < watermarkEndBin; i += Math.max(1, Math.floor((watermarkEndBin - startBin) / 10))) {
       const x = padding.left + i * barWidth + barWidth / 2;
@@ -213,7 +213,7 @@ export default function FrequencyDomainVisualization({
 
     // Draw title
     ctx.fillStyle = '#fff';
-    ctx.font = 'bold 16px sans-serif';
+    ctx.font = 'bold 16px "Helvetica Neue", Helvetica, Arial, sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText('Frequency Domain - Watermark Detection', width / 2, 25);
   }, [fftData, bitSequence, startBin, scores, votes, threshold]);

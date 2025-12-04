@@ -77,7 +77,7 @@ export default function BitDiagnostics({
 
       if (barH > 20 && opts.barLabels) {
         ctx.fillStyle = '#fff';
-        ctx.font = 'bold 10px sans-serif';
+        ctx.font = 'bold 10px "Helvetica Neue", Helvetica, Arial, sans-serif';
         ctx.textAlign = 'center';
         ctx.fillText(
           opts.barLabels[idx].toString(),
@@ -101,7 +101,7 @@ export default function BitDiagnostics({
       ctx.setLineDash([]);
       if (opts.lineLabel) {
         ctx.fillStyle = '#FF6B6B';
-        ctx.font = '12px sans-serif';
+        ctx.font = '12px "Helvetica Neue", Helvetica, Arial, sans-serif';
         ctx.textAlign = 'right';
         ctx.fillText(opts.lineLabel, width - padding.right - 8, y - 6);
       }
@@ -118,11 +118,11 @@ export default function BitDiagnostics({
 
     // Labels
     ctx.fillStyle = '#fff';
-    ctx.font = 'bold 14px sans-serif';
+    ctx.font = 'bold 14px "Helvetica Neue", Helvetica, Arial, sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText(opts.title, width / 2, 22);
 
-    ctx.font = '12px sans-serif';
+    ctx.font = '12px "Helvetica Neue", Helvetica, Arial, sans-serif';
     ctx.fillText('Watermark Bin', width / 2, height - 10);
   };
 

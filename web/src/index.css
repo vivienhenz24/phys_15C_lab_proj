@@ -1,5 +1,6 @@
+html,
 :root {
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif !important;
   line-height: 1.5;
   font-weight: 400;
 
@@ -28,6 +29,7 @@ body {
   place-items: center;
   min-width: 320px;
   min-height: 100vh;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif !important;
 }
 
 #root {
@@ -62,9 +64,14 @@ button:focus-visible {
 }
 
 @media (prefers-color-scheme: light) {
+  html,
   :root {
     color: #213547;
     background-color: #ffffff;
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+  }
+  body {
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif !important;
   }
   a:hover {
     color: #747bff;

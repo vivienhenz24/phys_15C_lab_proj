@@ -3,6 +3,11 @@
   max-width: 1400px;
   margin: 0 auto;
   padding: 2.5rem 1.5rem 3rem;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+}
+
+.app *:not(code):not(pre):not(.monospace):not([class*="mono"]):not(.message-display):not(.bytes-display):not(.info-value) {
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif !important;
 }
 
 .app-header {
