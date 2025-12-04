@@ -35,6 +35,14 @@ const OUTPUT_PATH: &str = concat!(
 // ORCHESTRATOR: Main entry point that coordinates the encoding pipeline
 // =============================================================================
 
+/// Visualization data for encoding
+#[derive(Clone)]
+pub struct EncodeVisualization {
+    pub original_frame: Vec<f32>,
+    pub watermarked_frame: Vec<f32>,
+    pub bit_sequence: Vec<u8>,
+}
+
 /// WASM-compatible encoder that accepts audio samples directly
 /// Returns encoded samples as Vec<f32>
 pub fn encode_audio_samples(
@@ -44,6 +52,18 @@ pub fn encode_audio_samples(
     frame_duration_ms: u32,
     strength_percent: u32,
 ) -> Vec<f32> {
+    let (encoded, _) = encode_audio_samples_with_viz(samples, sample_rate, message, frame_duration_ms, strength_percent);
+    encoded
+}
+
+/// WASM-compatible encoder that returns both encoded samples and visualization data
+pub fn encode_audio_samples_with_viz(
+    samples: &[f32],
+    sample_rate: u32,
+    message: &str,
+    frame_duration_ms: u32,
+    strength_percent: u32,
+) -> (Vec<f32>, EncodeVisualization) {
     let strength_percent = strength_percent.max(20); // enforce a floor so the watermark survives noisy audio
 
     // Build the bit sequence (pilot + length + message)
@@ -53,15 +73,34 @@ pub fn encode_audio_samples(
     let frame_len = frame_length_samples(sample_rate, frame_duration_ms);
     if frame_len <= START_BIN {
         // Return original samples if frame length is too small
-        return samples.to_vec();
+        let empty_viz = EncodeVisualization {
+            original_frame: Vec::new(),
+            watermarked_frame: Vec::new(),
+            bit_sequence: bits,
+        };
+        return (samples.to_vec(), empty_viz);
     }
 
+    // Extract first frame for visualization
+    let first_frame_original: Vec<f32> = samples.iter().take(frame_len).copied().collect();
+
     // Convert strength percentage to fraction
-    // We amplify the requested “percent” to make the watermark easier to recover in noisy test audio.
+    // We amplify the requested "percent" to make the watermark easier to recover in noisy test audio.
     let strength = (strength_percent as f32 / 50.0).min(1.0);
 
     // Embed watermark into audio via FFT processing
-    embed_watermark_fft(samples, &bits, frame_len, strength)
+    let encoded = embed_watermark_fft(samples, &bits, frame_len, strength);
+    
+    // Extract first frame of watermarked audio for visualization
+    let first_frame_watermarked: Vec<f32> = encoded.iter().take(frame_len).copied().collect();
+
+    let viz = EncodeVisualization {
+        original_frame: first_frame_original,
+        watermarked_frame: first_frame_watermarked,
+        bit_sequence: bits,
+    };
+
+    (encoded, viz)
 }
 
 pub fn encode_sample(message: &str) {

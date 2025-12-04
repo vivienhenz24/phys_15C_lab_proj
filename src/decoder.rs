@@ -17,17 +17,52 @@ pub struct DecodedWatermark {
     pub raw_bytes: Vec<u8>, // raw byte payload
 }
 
+/// Visualization data for decoding
+#[allow(dead_code)]
+pub struct DecodeVisualization {
+    pub bit_sequence: Vec<u8>,
+    pub scores: Vec<f32>,
+    pub votes: Vec<f32>,
+    pub threshold: f32,
+    pub avg_high: f32,
+    pub avg_low: f32,
+    pub inverted: bool,
+    pub first_frame: Vec<f32>,
+}
+
 /// WASM-compatible decoder that accepts audio samples directly
 pub fn decode_audio_samples(samples: &[f32], sample_rate: u32) -> DecodedWatermark {
+    let (decoded, _) = decode_audio_samples_with_viz(samples, sample_rate);
+    decoded
+}
+
+/// WASM-compatible decoder that returns both decoded watermark and visualization data
+pub fn decode_audio_samples_with_viz(samples: &[f32], sample_rate: u32) -> (DecodedWatermark, DecodeVisualization) {
+    // Extract first frame for visualization
+    let frame_len = ((sample_rate as f32 * WATERMARK_FRAME_DURATION)
+        .round()
+        .max(1.0)) as usize;
+    let first_frame: Vec<f32> = samples.iter().take(frame_len).copied().collect();
+
     let (scores, votes, _valid, _skipped, frames_inverted) =
         summarise_frames(samples, sample_rate, 3); // aggregate frame stats
 
     if scores.len() < PILOT_PATTERN.len() + LENGTH_HEADER_BITS {
         // Return empty result if not enough bins
-        return DecodedWatermark {
+        let empty_viz = DecodeVisualization {
+            bit_sequence: Vec::new(),
+            scores: Vec::new(),
+            votes: Vec::new(),
+            threshold: 0.0,
+            avg_high: 0.0,
+            avg_low: 0.0,
+            inverted: false,
+            first_frame,
+        };
+        return (DecodedWatermark {
             message: String::new(),
             raw_bytes: Vec::new(),
-        };
+        }, empty_viz);
     }
 
     let (avg_high, avg_low, threshold) = pilot_stats(&scores); // global threshold from pilot
@@ -73,10 +108,20 @@ pub fn decode_audio_samples(samples: &[f32], sample_rate: u32) -> DecodedWaterma
     let header_len = decode_length_header(len_bits); // parse payload size (hint only)
     let max_bytes = data_bits_all.len() / 8; // how many whole bytes we can possibly recover
     if max_bytes == 0 {
-        return DecodedWatermark {
+        let empty_viz = DecodeVisualization {
+            bit_sequence: bits.clone(),
+            scores: scores.clone(),
+            votes: votes.clone(),
+            threshold,
+            avg_high,
+            avg_low,
+            inverted,
+            first_frame,
+        };
+        return (DecodedWatermark {
             message: String::new(),
             raw_bytes: Vec::new(),
-        };
+        }, empty_viz);
     }
 
     // Try every plausible length and pick the one that yields the most readable ASCII.
@@ -104,7 +149,7 @@ pub fn decode_audio_samples(samples: &[f32], sample_rate: u32) -> DecodedWaterma
     }
 
     let (_score, chosen) = best.expect("at least one candidate length exists");
-
+    
     #[cfg(debug_assertions)]
     {
         eprintln!(
@@ -147,7 +192,19 @@ pub fn decode_audio_samples(samples: &[f32], sample_rate: u32) -> DecodedWaterma
         );
     }
 
-    chosen // convert to DecodedWatermark
+    // Create visualization data
+    let viz = DecodeVisualization {
+        bit_sequence: bits,
+        scores: scores.clone(),
+        votes: votes.clone(),
+        threshold,
+        avg_high,
+        avg_low,
+        inverted,
+        first_frame,
+    };
+    
+    (chosen, viz)
 }
 
 /// Blindly decode the watermark from the provided path.

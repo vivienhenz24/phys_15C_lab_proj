@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { wavFileToSamples } from '../utils/audioUtils';
-import { decodeAudio } from '../wasm';
+import { decodeAudioWithViz, DecodeResult } from '../wasm';
+import WaveformVisualization from './WaveformVisualization';
+import FrequencyDomainVisualization from './FrequencyDomainVisualization';
 
 export default function Decoder() {
   const [isDecoding, setIsDecoding] = useState(false);
@@ -8,6 +10,8 @@ export default function Decoder() {
   const [decodedBytes, setDecodedBytes] = useState<number[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
+  const [decodeResult, setDecodeResult] = useState<DecodeResult | null>(null);
+  const [sampleRate, setSampleRate] = useState<number>(8000);
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -17,16 +21,19 @@ export default function Decoder() {
     setDecodedMessage(null);
     setDecodedBytes(null);
     setError(null);
+    setDecodeResult(null);
     setIsDecoding(true);
 
     try {
       // Parse WAV file
-      const { samples, sampleRate } = await wavFileToSamples(file);
+      const { samples, sampleRate: fileSampleRate } = await wavFileToSamples(file);
+      setSampleRate(fileSampleRate);
 
-      // Decode the watermark
-      const result = await decodeAudio(samples, sampleRate);
+      // Decode the watermark with visualization data
+      const result = await decodeAudioWithViz(samples, fileSampleRate);
       setDecodedMessage(result.message);
       setDecodedBytes(result.raw_bytes);
+      setDecodeResult(result);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Decoding failed');
     } finally {
@@ -65,6 +72,25 @@ export default function Decoder() {
       )}
 
       {error && <div className="error-message">{error}</div>}
+
+      {decodeResult && decodeResult.visualization.first_frame.length > 0 && (
+        <div className="visualization-section">
+          <h3>Decoding Visualization</h3>
+          
+          <div className="frequency-domain-section">
+            <h4>Frequency Domain - Decoded Bits</h4>
+            <FrequencyDomainVisualization
+              audioFrame={decodeResult.visualization.first_frame}
+              bitSequence={decodeResult.visualization.bit_sequence}
+              scores={decodeResult.visualization.scores}
+              votes={decodeResult.visualization.votes}
+              threshold={decodeResult.visualization.threshold}
+              sampleRate={sampleRate}
+              startBin={48}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

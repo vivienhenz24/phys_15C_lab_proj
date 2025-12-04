@@ -230,6 +230,159 @@
   }
 }
 
+/* Visualization styles */
+.visualization-section {
+  margin-top: 2rem;
+  padding-top: 2rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.visualization-section h3 {
+  margin-top: 0;
+  margin-bottom: 1.5rem;
+  font-size: 1.5em;
+}
+
+.visualization-section h4 {
+  margin-top: 0;
+  margin-bottom: 1rem;
+  font-size: 1.2em;
+}
+
+.waveform-section {
+  margin-bottom: 2rem;
+}
+
+.waveform-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+.waveform-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.waveform-label {
+  margin-top: 0.5rem;
+  font-weight: 600;
+  font-size: 0.9em;
+  color: #666;
+}
+
+.waveform-visualization {
+  width: 100%;
+}
+
+.bit-sequence-section {
+  margin-top: 2rem;
+}
+
+.bit-sequence-visualization h3 {
+  margin-top: 0;
+  margin-bottom: 1rem;
+}
+
+.bit-sequence-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.bit-group {
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.bit-group-header {
+  padding: 0.5rem 1rem;
+  font-weight: 600;
+  font-size: 0.9em;
+}
+
+.bit-group-label {
+  color: #333;
+}
+
+.bit-group-bits {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  padding: 0.75rem;
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.bit-box {
+  width: 2rem;
+  height: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  color: white;
+  border-radius: 4px;
+  font-size: 0.9em;
+  transition: transform 0.2s;
+}
+
+.bit-box:hover {
+  transform: scale(1.1);
+  z-index: 1;
+  position: relative;
+}
+
+.bit-sequence-info {
+  margin-top: 1rem;
+  padding: 1rem;
+  background-color: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.info-item {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.info-label {
+  font-weight: 600;
+  opacity: 0.8;
+}
+
+.info-value {
+  font-family: monospace;
+}
+
+.bit-legend {
+  margin-top: 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding: 0.75rem;
+  background-color: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.legend-color {
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
 @media (max-width: 768px) {
   .sections-container {
     grid-template-columns: 1fr;
@@ -237,6 +390,15 @@
 
   .app {
     padding: 1rem;
+  }
+
+  .waveform-container {
+    flex-direction: column;
+  }
+
+  .waveform-container canvas {
+    margin-left: 0 !important;
+    width: 100%;
   }
 }
 
