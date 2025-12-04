@@ -1,35 +1,33 @@
 .app {
   width: 100%;
-  max-width: 1200px;
+  max-width: 1400px;
   margin: 0 auto;
-  padding: 2rem;
+  padding: 2.5rem 1.5rem 3rem;
 }
 
 .app-header {
-  margin-bottom: 3rem;
+  margin-bottom: 2rem;
   text-align: center;
 }
 
 .app-header h1 {
-  margin: 0 0 0.5rem 0;
-  font-size: 2.5em;
+  margin: 0 0 0.35rem 0;
+  font-size: 2.6em;
 }
 
 .app-header p {
   margin: 0;
-  opacity: 0.8;
-  font-size: 1.1em;
+  opacity: 0.82;
+  font-size: 1.05em;
 }
 
 .app-main {
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  gap: 2rem;
 }
 
-.sections-container {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 2rem;
+.sections-stack {
   width: 100%;
 }
 
@@ -39,6 +37,7 @@
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 8px;
   background-color: rgba(255, 255, 255, 0.05);
+  box-shadow: 0 14px 38px rgba(0, 0, 0, 0.08);
 }
 
 .encoder-section h2,
@@ -214,6 +213,7 @@
   .decoder-section {
     background-color: rgba(0, 0, 0, 0.05);
     border-color: rgba(0, 0, 0, 0.1);
+    box-shadow: 0 14px 38px rgba(0, 0, 0, 0.04);
   }
 
   .form-group input[type="text"],
@@ -228,6 +228,26 @@
   .message-display {
     background-color: rgba(0, 0, 0, 0.05);
   }
+
+  /* Force white text in visualization sections even in light mode */
+  .visualization-section,
+  .visualization-section * {
+    color: #fff !important;
+  }
+
+  .bit-group-header,
+  .bit-group-label,
+  .info-label,
+  .info-value,
+  .legend-item,
+  .legend-item span,
+  .frequency-legend,
+  .frequency-legend .legend-item,
+  .frequency-legend .legend-item span,
+  .waveform-label,
+  .waveform-comparison-label {
+    color: #fff !important;
+  }
 }
 
 /* Visualization styles */
@@ -235,18 +255,21 @@
   margin-top: 2rem;
   padding-top: 2rem;
   border-top: 1px solid rgba(255, 255, 255, 0.2);
+  color: #fff;
 }
 
 .visualization-section h3 {
   margin-top: 0;
   margin-bottom: 1.5rem;
   font-size: 1.5em;
+  color: #fff;
 }
 
 .visualization-section h4 {
   margin-top: 0;
   margin-bottom: 1rem;
   font-size: 1.2em;
+  color: #fff;
 }
 
 .waveform-section {
@@ -256,7 +279,7 @@
 .waveform-container {
   display: flex;
   flex-wrap: wrap;
-  gap: 1rem;
+  gap: 2rem;
   justify-content: center;
   align-items: flex-start;
 }
@@ -265,26 +288,91 @@
   display: flex;
   flex-direction: column;
   align-items: center;
+  flex: 1;
+  min-width: 300px;
+  max-width: 600px;
 }
 
 .waveform-label {
   margin-top: 0.5rem;
   font-weight: 600;
   font-size: 0.9em;
-  color: #666;
+  color: #fff;
+  text-align: center;
 }
 
 .waveform-visualization {
   width: 100%;
 }
 
+.waveform-comparison-label {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.75rem;
+  font-weight: 600;
+  color: #fff;
+  margin-bottom: 0.5rem;
+}
+
+.waveform-arrow {
+  font-size: 1.25rem;
+  opacity: 0.7;
+}
+
 .bit-sequence-section {
   margin-top: 2rem;
+}
+
+.frequency-domain-section {
+  margin-top: 2rem;
+}
+
+.frequency-domain-visualization {
+  width: 100%;
+  margin-top: 1rem;
+}
+
+.frequency-legend {
+  margin-top: 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding: 0.75rem;
+  background-color: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+  justify-content: center;
+  color: #fff !important;
+}
+
+.frequency-legend .legend-item {
+  color: #fff !important;
+}
+
+.frequency-legend .legend-item span {
+  color: #fff !important;
+}
+
+.legend-dash {
+  width: 2rem;
+  height: 0;
+  margin-top: 0.5rem;
 }
 
 .bit-sequence-visualization h3 {
   margin-top: 0;
   margin-bottom: 1rem;
+  color: #fff !important;
+}
+
+.bit-diagnostics-section {
+  margin-top: 2.5rem;
+}
+
+.bit-diagnostics {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
 }
 
 .bit-sequence-container {
@@ -303,10 +391,11 @@
   padding: 0.5rem 1rem;
   font-weight: 600;
   font-size: 0.9em;
+  color: #fff !important;
 }
 
 .bit-group-label {
-  color: #333;
+  color: #fff !important;
 }
 
 .bit-group-bits {
@@ -354,10 +443,12 @@
 .info-label {
   font-weight: 600;
   opacity: 0.8;
+  color: #fff !important;
 }
 
 .info-value {
   font-family: monospace;
+  color: #fff !important;
 }
 
 .bit-legend {
@@ -368,12 +459,18 @@
   padding: 0.75rem;
   background-color: rgba(255, 255, 255, 0.05);
   border-radius: 4px;
+  color: #fff !important;
 }
 
 .legend-item {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  color: #fff !important;
+}
+
+.legend-item span {
+  color: #fff !important;
 }
 
 .legend-color {
@@ -396,11 +493,12 @@
     flex-direction: column;
   }
 
+  .waveform-item {
+    max-width: 100%;
+  }
+
   .waveform-container canvas {
-    margin-left: 0 !important;
     width: 100%;
+    max-width: 100%;
   }
 }
-
-
-

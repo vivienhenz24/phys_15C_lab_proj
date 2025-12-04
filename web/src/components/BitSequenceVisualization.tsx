@@ -19,6 +19,40 @@ export default function BitSequenceVisualization({
   avgLow,
   inverted,
 }: BitSequenceVisualizationProps) {
+  // Helper function to convert bits to byte value
+  const bitsToByte = (bits: number[]): number => {
+    if (bits.length !== 8) return 0;
+    let byte = 0;
+    for (let i = 0; i < 8; i++) {
+      byte = (byte << 1) | (bits[i] & 1);
+    }
+    return byte;
+  };
+
+  // Helper function to get character from byte
+  const byteToChar = (byte: number): string => {
+    try {
+      const char = String.fromCharCode(byte);
+      // Show printable characters, otherwise show hex
+      if (char >= ' ' && char <= '~') {
+        return char;
+      }
+      return `\\x${byte.toString(16).padStart(2, '0')}`;
+    } catch {
+      return `\\x${byte.toString(16).padStart(2, '0')}`;
+    }
+  };
+
+  // Helper function to decode 16-bit length header
+  const bitsToLength = (bits: number[]): number => {
+    if (bits.length !== 16) return 0;
+    let length = 0;
+    for (let i = 0; i < 16; i++) {
+      length = (length << 1) | (bits[i] & 1);
+    }
+    return length;
+  };
+
   const bitGroups = useMemo(() => {
     // Group bits: pilot (8), length header (16), then message bytes (8 each)
     const groups: Array<{
@@ -26,6 +60,7 @@ export default function BitSequenceVisualization({
       bits: number[];
       startIdx: number;
       color: string;
+      character?: string;
     }> = [];
 
     if (bitSequence.length === 0) return groups;
@@ -42,9 +77,11 @@ export default function BitSequenceVisualization({
 
     // Length header (next 16 bits)
     if (bitSequence.length >= 24) {
+      const lengthBits = bitSequence.slice(8, 24);
+      const lengthValue = bitsToLength(lengthBits);
       groups.push({
-        label: 'Length Header (16 bits)',
-        bits: bitSequence.slice(8, 24),
+        label: `Length Header (16 bits) → ${lengthValue} bytes`,
+        bits: lengthBits,
         startIdx: 8,
         color: '#FF6B6B',
       });
@@ -58,11 +95,16 @@ export default function BitSequenceVisualization({
       
       for (let i = 0; i < numBytes; i++) {
         const byteStart = messageStart + i * 8;
+        const byteBits = bitSequence.slice(byteStart, byteStart + 8);
+        const byteValue = bitsToByte(byteBits);
+        const character = byteToChar(byteValue);
+        
         groups.push({
-          label: `Message Byte ${i + 1} (8 bits)`,
-          bits: bitSequence.slice(byteStart, byteStart + 8),
+          label: `Message Byte ${i + 1} (8 bits) → '${character}'`,
+          bits: byteBits,
           startIdx: byteStart,
           color: '#4169E1',
+          character: character,
         });
       }
     }

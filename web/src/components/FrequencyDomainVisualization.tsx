@@ -7,7 +7,9 @@ interface FrequencyDomainVisualizationProps {
   votes?: number[];
   threshold?: number;
   sampleRate: number;
-  startBin?: number; // First watermark bin (default 48)
+  startBin?: number; // First watermark bin (default 10)
+  height?: number;
+  width?: number;
 }
 
 export default function FrequencyDomainVisualization({
@@ -17,11 +19,13 @@ export default function FrequencyDomainVisualization({
   votes,
   threshold,
   sampleRate,
-  startBin = 48,
+  startBin = 10,
+  height = 480,
+  width = 1400,
 }: FrequencyDomainVisualizationProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  // Compute FFT using Web Audio API
+  // Compute FFT using DFT (Discrete Fourier Transform)
   const fftData = useMemo(() => {
     if (audioFrame.length === 0) return null;
 
@@ -33,26 +37,13 @@ export default function FrequencyDomainVisualization({
     // Use next power of 2 for FFT size
     const fftSize = Math.pow(2, Math.ceil(Math.log2(samples.length)));
     
-    // Create a temporary audio context for FFT
-    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-    const buffer = audioContext.createBuffer(1, fftSize, sampleRate);
-    const channelData = buffer.getChannelData(0);
-    
-    // Copy samples to buffer
+    // Zero-pad samples to fftSize
+    const paddedSamples = new Float32Array(fftSize);
     for (let i = 0; i < samples.length; i++) {
-      channelData[i] = samples[i];
+      paddedSamples[i] = samples[i];
     }
-    // Zero-pad the rest
-    for (let i = samples.length; i < fftSize; i++) {
-      channelData[i] = 0;
-    }
-
-    // Perform FFT
-    const fft = new (window as any).AnalyserNode(audioContext, { fftSize });
-    const dataArray = new Float32Array(fftSize);
     
-    // Use a simple FFT implementation or Web Audio API
-    // For now, we'll use a simple DFT implementation
+    // Perform DFT (Discrete Fourier Transform)
     const magnitudes: number[] = [];
     const N = fftSize;
     
@@ -62,15 +53,13 @@ export default function FrequencyDomainVisualization({
       
       for (let n = 0; n < N; n++) {
         const angle = (2 * Math.PI * k * n) / N;
-        real += channelData[n] * Math.cos(angle);
-        imag -= channelData[n] * Math.sin(angle);
+        real += paddedSamples[n] * Math.cos(angle);
+        imag -= paddedSamples[n] * Math.sin(angle);
       }
       
       const magnitude = Math.sqrt(real * real + imag * imag);
       magnitudes.push(magnitude);
     }
-    
-    audioContext.close();
     
     return {
       magnitudes,
@@ -115,10 +104,20 @@ export default function FrequencyDomainVisualization({
       ctx.stroke();
     }
 
-    // Draw frequency bars
+    // Prepare geometry
     const numBins = fftData.magnitudes.length;
     const barWidth = drawWidth / numBins;
     const watermarkEndBin = Math.min(startBin + bitSequence.length, numBins);
+
+    // Draw watermark region background
+    if (watermarkEndBin > startBin) {
+      const startX = padding.left + startBin * barWidth;
+      const endX = padding.left + watermarkEndBin * barWidth;
+      ctx.fillStyle = 'rgba(255, 215, 0, 0.08)';
+      ctx.fillRect(startX, padding.top, endX - startX, drawHeight);
+    }
+
+    // Draw frequency bars
 
     // Draw all frequency bars
     for (let i = 0; i < numBins; i++) {
@@ -152,7 +151,7 @@ export default function FrequencyDomainVisualization({
 
       // Draw bit value label on watermark bins
       if (isWatermarkBin && decodedBit !== null && barHeight > 10) {
-        ctx.fillStyle = '#000';
+        ctx.fillStyle = '#fff';
         ctx.font = 'bold 10px sans-serif';
         ctx.textAlign = 'center';
         ctx.fillText(
@@ -190,7 +189,7 @@ export default function FrequencyDomainVisualization({
     ctx.stroke();
 
     // Draw labels
-    ctx.fillStyle = '#333';
+    ctx.fillStyle = '#fff';
     ctx.font = '12px sans-serif';
     ctx.textAlign = 'center';
     
@@ -206,14 +205,14 @@ export default function FrequencyDomainVisualization({
 
     // Draw frequency bin numbers for watermark region
     ctx.font = '10px sans-serif';
-    ctx.fillStyle = '#666';
+    ctx.fillStyle = '#fff';
     for (let i = startBin; i < watermarkEndBin; i += Math.max(1, Math.floor((watermarkEndBin - startBin) / 10))) {
       const x = padding.left + i * barWidth + barWidth / 2;
       ctx.fillText(i.toString(), x, height - padding.bottom + 15);
     }
 
     // Draw title
-    ctx.fillStyle = '#333';
+    ctx.fillStyle = '#fff';
     ctx.font = 'bold 16px sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText('Frequency Domain - Watermark Detection', width / 2, 25);
@@ -223,8 +222,8 @@ export default function FrequencyDomainVisualization({
     <div className="frequency-domain-visualization">
       <canvas
         ref={canvasRef}
-        width={1200}
-        height={400}
+        width={width}
+        height={height}
         style={{ border: '1px solid #ddd', borderRadius: '4px', maxWidth: '100%' }}
       />
       <div className="frequency-legend">
@@ -248,4 +247,3 @@ export default function FrequencyDomainVisualization({
     </div>
   );
 }
-

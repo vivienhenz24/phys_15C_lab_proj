@@ -15,6 +15,12 @@ export default function WaveformVisualization({
   const canvasRef2 = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
+    const peak =
+      Math.max(
+        ...[...originalFrame, ...watermarkedFrame].map((v) => Math.abs(v)),
+        1e-6
+      ) || 1e-6; // shared scaling so left/right are comparable
+
     const drawWaveform = (
       canvas: HTMLCanvasElement,
       samples: Float32Array | number[],
@@ -70,7 +76,7 @@ export default function WaveformVisualization({
       for (let i = 0; i < samples.length; i++) {
         const x = padding + (i / (samples.length - 1)) * drawWidth;
         const sample = samples[i];
-        const y = centerYPos - (sample * drawHeight) / 2;
+        const y = centerYPos - (sample / peak) * (drawHeight / 2);
         
         if (i === 0) {
           ctx.moveTo(x, y);
@@ -82,7 +88,7 @@ export default function WaveformVisualization({
       ctx.stroke();
 
       // Draw title
-      ctx.fillStyle = '#333';
+      ctx.fillStyle = '#fff';
       ctx.font = 'bold 14px sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText(label, width / 2, 15);
@@ -109,6 +115,11 @@ export default function WaveformVisualization({
 
   return (
     <div className="waveform-visualization">
+      <div className="waveform-comparison-label">
+        <span>Original (left)</span>
+        <span className="waveform-arrow">⇄</span>
+        <span>Watermarked (right)</span>
+      </div>
       <div className="waveform-container">
         <div className="waveform-item">
           <canvas
@@ -132,4 +143,3 @@ export default function WaveformVisualization({
     </div>
   );
 }
-

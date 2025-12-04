@@ -3,6 +3,7 @@ import { wavFileToSamples } from '../utils/audioUtils';
 import { decodeAudioWithViz, DecodeResult } from '../wasm';
 import WaveformVisualization from './WaveformVisualization';
 import FrequencyDomainVisualization from './FrequencyDomainVisualization';
+import BitDiagnostics from './BitDiagnostics';
 
 export default function Decoder() {
   const [isDecoding, setIsDecoding] = useState(false);
@@ -86,7 +87,20 @@ export default function Decoder() {
               votes={decodeResult.visualization.votes}
               threshold={decodeResult.visualization.threshold}
               sampleRate={sampleRate}
-              startBin={48}
+              startBin={10}
+              width={1400}
+              height={500}
+            />
+          </div>
+
+          <div className="bit-diagnostics-section">
+            <h4>Per-Bit Diagnostics (scores & votes)</h4>
+            <BitDiagnostics
+              bitSequence={decodeResult.visualization.bit_sequence}
+              scores={decodeResult.visualization.scores}
+              votes={decodeResult.visualization.votes}
+              threshold={decodeResult.visualization.threshold}
+              startBin={10}
             />
           </div>
         </div>
@@ -94,4 +108,3 @@ export default function Decoder() {
     </div>
   );
 }
-

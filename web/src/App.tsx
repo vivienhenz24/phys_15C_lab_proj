@@ -6,20 +6,17 @@ function App() {
   return (
     <div className="app">
       <header className="app-header">
-        <h1>Audio Watermark Demo</h1>
-        <p>Encode and decode messages in audio using frequency-domain watermarking</p>
+        <h1>Audio Watermark Explorer</h1>
+        <p>Encode, decode, and visualize watermark bits across time and frequency domains.</p>
       </header>
-      <main className="app-main">
-        <div className="sections-container">
-          <Encoder />
-          <Decoder />
-        </div>
+      <main className="app-main sections-stack">
+        <Encoder />
+        <Decoder />
       </main>
     </div>
   )
 }
 
 export default App
-
 
 
