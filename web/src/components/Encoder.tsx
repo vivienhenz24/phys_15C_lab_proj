@@ -12,7 +12,7 @@ export default function Encoder() {
   
   // Fixed configuration values
   const FRAME_DURATION_MS = 32;
-  const STRENGTH_PERCENT = 50;
+  const STRENGTH_PERCENT = 15;
 
   const handleRecordingComplete = (samples: Float32Array, sampleRate: number) => {
     setRecordedSamples(samples);

@@ -12,7 +12,7 @@ use std::path::{Path, PathBuf};
 // Alternating 0s and 1s give us clear separation between high and low magnitudes
 pub const PILOT_PATTERN: [u8; 8] = [0, 1, 0, 1, 0, 1, 0, 1];
 
-const START_BIN: usize = 10;
+const START_BIN: usize = 48; // shift watermark away from dominant speech harmonics
 
 // Sample normalization divisor for i16 -> f32 conversion
 const SAMPLE_DIVISOR: f32 = 32768.0;
@@ -44,6 +44,8 @@ pub fn encode_audio_samples(
     frame_duration_ms: u32,
     strength_percent: u32,
 ) -> Vec<f32> {
+    let strength_percent = strength_percent.max(20); // enforce a floor so the watermark survives noisy audio
+
     // Build the bit sequence (pilot + length + message)
     let bits = build_bit_sequence(message);
 
@@ -55,7 +57,8 @@ pub fn encode_audio_samples(
     }
 
     // Convert strength percentage to fraction
-    let strength = strength_percent as f32 / 100.0;
+    // We amplify the requested “percent” to make the watermark easier to recover in noisy test audio.
+    let strength = (strength_percent as f32 / 50.0).min(1.0);
 
     // Embed watermark into audio via FFT processing
     embed_watermark_fft(samples, &bits, frame_len, strength)
@@ -94,7 +97,7 @@ pub fn encode_sample(message: &str) {
             }
 
             for &strength_percent in WATERMARK_STRENGTHS.iter() {
-                let strength = strength_percent as f32 / 100.0;
+                let strength = (strength_percent.max(20) as f32 / 50.0).min(1.0);
 
                 // Step 3: Embed bits into audio via FFT processing
                 let encoded =
@@ -193,11 +196,14 @@ fn build_bit_sequence(message: &str) -> Vec<u8> {
 // =============================================================================
 
 fn embed_watermark_fft(audio: &[f32], bits: &[u8], frame_len: usize, strength: f32) -> Vec<f32> {
+    // Use next_power_of_two to match decoder's FFT size
+    let fft_len = frame_len.next_power_of_two().max(2);
+    
     let mut planner = RealFftPlanner::<f32>::new();
-    let fft = planner.plan_fft_forward(frame_len);
-    let ifft = planner.plan_fft_inverse(frame_len);
+    let fft = planner.plan_fft_forward(fft_len);
+    let ifft = planner.plan_fft_inverse(fft_len);
 
-    let mut buffer = vec![0.0f32; frame_len];
+    let mut buffer = vec![0.0f32; fft_len];
 
     //buffer (256 slots):
     //[___|___|___|___|___| ... |___|___|___]
@@ -246,7 +252,7 @@ fn embed_watermark_fft(audio: &[f32], bits: &[u8], frame_len: usize, strength: f
             .expect("IFFT failed");
 
         // Normalize and append
-        output.extend(buffer[..chunk.len()].iter().map(|x| x / frame_len as f32));
+        output.extend(buffer[..chunk.len()].iter().map(|x| x / fft_len as f32));
     }
 
     output
