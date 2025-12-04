@@ -35,6 +35,32 @@ const OUTPUT_PATH: &str = concat!(
 // ORCHESTRATOR: Main entry point that coordinates the encoding pipeline
 // =============================================================================
 
+/// WASM-compatible encoder that accepts audio samples directly
+/// Returns encoded samples as Vec<f32>
+pub fn encode_audio_samples(
+    samples: &[f32],
+    sample_rate: u32,
+    message: &str,
+    frame_duration_ms: u32,
+    strength_percent: u32,
+) -> Vec<f32> {
+    // Build the bit sequence (pilot + length + message)
+    let bits = build_bit_sequence(message);
+
+    // Calculate frame length
+    let frame_len = frame_length_samples(sample_rate, frame_duration_ms);
+    if frame_len <= START_BIN {
+        // Return original samples if frame length is too small
+        return samples.to_vec();
+    }
+
+    // Convert strength percentage to fraction
+    let strength = strength_percent as f32 / 100.0;
+
+    // Embed watermark into audio via FFT processing
+    embed_watermark_fft(samples, &bits, frame_len, strength)
+}
+
 pub fn encode_sample(message: &str) {
     // Step 1: Load audio and get normalized samples + metadata
     let (base_samples, base_spec) = load_and_normalize_audio(Path::new(INPUT_PATH));

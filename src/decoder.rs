@@ -17,67 +17,43 @@ pub struct DecodedWatermark {
     pub raw_bytes: Vec<u8>, // raw byte payload
 }
 
-/// Blindly decode the watermark from the provided path.
-pub fn decode_watermarked_sample(path: impl AsRef<Path>) -> DecodedWatermark {
-    println!("=== Audio Watermark Decoder (Blind) ===\n"); // header
-
-    let (samples, sample_rate) = load_audio(path.as_ref()); // load waveform
-    let (scores, votes, valid, skipped) = summarise_frames(&samples, sample_rate, 3); // aggregate frame stats
+/// WASM-compatible decoder that accepts audio samples directly
+pub fn decode_audio_samples(samples: &[f32], sample_rate: u32) -> DecodedWatermark {
+    let (scores, votes, _valid, _skipped) = summarise_frames(samples, sample_rate, 3); // aggregate frame stats
 
     if scores.len() < PILOT_PATTERN.len() + LENGTH_HEADER_BITS {
-        panic!("not enough spectral bins to recover watermark"); // guard
+        // Return empty result if not enough bins
+        return DecodedWatermark {
+            message: String::new(),
+            raw_bytes: Vec::new(),
+        };
     }
 
-    println!("Used {} frames for decoding ({} skipped)", valid, skipped); // diagnostics
-
     let (avg_high, avg_low, threshold) = pilot_stats(&scores); // global threshold from pilot
-    println!(
-        "Pilot scores -> high: {:.6}, low: {:.6}, threshold: {:.6}",
-        avg_high, avg_low, threshold
-    );
 
     let bits = decide_bits(&scores, &votes, threshold, avg_high, avg_low); // convert scores to bits
 
-    let (pilot_bits, remainder) = bits.split_at(PILOT_PATTERN.len()); // separate pilot
-    let pilot_matches = pilot_bits
-        .iter()
-        .zip(PILOT_PATTERN.iter())
-        .filter(|(got, want)| **got == **want)
-        .count(); // count matches
-
-    if pilot_matches == PILOT_PATTERN.len() {
-        println!(
-            "Pilot pattern verified ({} / {} matches)",
-            pilot_matches,
-            PILOT_PATTERN.len()
-        );
-    } else {
-        println!(
-            "Warning: pilot pattern mismatch ({} / {} matches); continuing with majority vote bits",
-            pilot_matches,
-            PILOT_PATTERN.len()
-        );
-    }
+    let (_pilot_bits, remainder) = bits.split_at(PILOT_PATTERN.len()); // separate pilot
 
     let (len_bits, data_bits_all) = remainder.split_at(LENGTH_HEADER_BITS.min(remainder.len())); // length header slice
     let message_bytes = decode_length_header(len_bits); // parse payload size
-    println!("Length header reports {} message bytes", message_bytes);
 
     let required_bits = message_bytes.saturating_mul(8); // bits required
     let available_bits = data_bits_all.len(); // bits available
     let actual_bits = required_bits.min(available_bits); // clamp
 
-    if available_bits < required_bits {
-        println!(
-            "Warning: only {} of {} expected bits available; truncating",
-            available_bits, required_bits
-        );
-    }
-
     let message_bits = data_bits_all[..actual_bits].to_vec(); // payload bits
-    println!("Recovered {} data bits", message_bits.len());
 
-    let decoded = bits_to_message(message_bits); // convert to DecodedWatermark
+    bits_to_message(message_bits) // convert to DecodedWatermark
+}
+
+/// Blindly decode the watermark from the provided path.
+pub fn decode_watermarked_sample(path: impl AsRef<Path>) -> DecodedWatermark {
+    println!("=== Audio Watermark Decoder (Blind) ===\n"); // header
+
+    let (samples, sample_rate) = load_audio(path.as_ref()); // load waveform
+    let decoded = decode_audio_samples(&samples, sample_rate);
+    
     println!(
         "\nDecoded message: \"{}\" (bytes: {:?})",
         decoded.message, decoded.raw_bytes
@@ -104,12 +80,6 @@ fn summarise_frames(
         .round()
         .max(1.0)) as usize; // samples per frame
     let fft_len = frame_len.next_power_of_two().max(2); // FFT size
-
-    println!("Processing {} samples", samples.len());
-    println!(
-        "Processing {}-sample frames (FFT len {})",
-        frame_len, fft_len
-    );
 
     let mut planner = RealFftPlanner::<f32>::new(); // FFT planner
     let forward = planner.plan_fft_forward(fft_len); // forward FFT
