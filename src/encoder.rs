@@ -68,7 +68,6 @@ pub fn encode_audio_samples_with_viz(
 
     // Build the bit sequence (pilot + length + message)
     let bits = build_bit_sequence(message);
-
     // Calculate frame length
     let frame_len = frame_length_samples(sample_rate, frame_duration_ms);
     if frame_len <= START_BIN {
@@ -85,8 +84,8 @@ pub fn encode_audio_samples_with_viz(
     let first_frame_original: Vec<f32> = samples.iter().take(frame_len).copied().collect();
 
     // Convert strength percentage to fraction
-    // Keep the watermark subtle: scale more gently so it remains inaudible.
-    let strength = (strength_percent as f32 / 30.0).min(0.5);
+    // Keep subtle: map 15% → 0.75, cap at 0.6
+    let strength = (strength_percent as f32 / 20.0).min(0.6);
 
     // Embed watermark into audio via FFT processing
     let encoded = embed_watermark_fft(samples, &bits, frame_len, strength);
@@ -136,7 +135,7 @@ pub fn encode_sample(message: &str) {
             }
 
             for &strength_percent in WATERMARK_STRENGTHS.iter() {
-                let strength = (strength_percent.max(15) as f32 / 30.0).min(0.5);
+                let strength = (strength_percent.max(15) as f32 / 15.0).min(1.0);
 
                 // Step 3: Embed bits into audio via FFT processing
                 let encoded =
@@ -263,19 +262,13 @@ fn embed_watermark_fft(audio: &[f32], bits: &[u8], frame_len: usize, strength: f
         // Time → Frequency
         fft.process(&mut buffer, &mut spectrum).expect("FFT failed"); //i will explain in the decoder video
 
-        // Embed bits: boost (1.15) or reduce (0.85) frequency amplitudes
-        // Produces: &0, &1, &0, &1, &0, &1, ...
-        // (references to each bit)
-        // Same as spectrum[10..129]
-        // Includes: spectrum[10], spectrum[11], spectrum[12], ..., spectrum[128]
-        // That's 119 elements
+        // Compute masking reference: max magnitude within watermark bins
+        let max_mag = spectrum[START_BIN..]
+            .iter()
+            .map(|c| c.norm())
+            .fold(1e-6f32, f32::max);
 
-        //  Left side:     Right side:
-        // &0     ←──→  bin10
-        // &1     ←──→  bin11
-        // &0     ←──→  bin12
-        // &1     ←──→  bin13
-        // ...
+        // Embed bits with simple scaling in watermark bins
         for (&bit, bin) in bits.iter().zip(&mut spectrum[START_BIN..]) {
             let scale = if bit == 1 {
                 1.0 + strength
