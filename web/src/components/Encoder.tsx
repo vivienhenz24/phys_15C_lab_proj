@@ -21,16 +21,22 @@ export default function Encoder() {
   const STRENGTH_PERCENT = 15;
   const MAX_MESSAGE_LENGTH = 11;
 
+  // Revoke generated URLs when they change or on unmount so audio elements keep working
   useEffect(() => {
     return () => {
       if (playbackUrl) {
         URL.revokeObjectURL(playbackUrl);
       }
+    };
+  }, [playbackUrl]);
+
+  useEffect(() => {
+    return () => {
       if (originalUrl) {
         URL.revokeObjectURL(originalUrl);
       }
     };
-  }, [playbackUrl, originalUrl]);
+  }, [originalUrl]);
 
   const handleRecordingComplete = (samples: Float32Array, sampleRate: number) => {
     setRecordedSamples(samples);
