@@ -12,7 +12,7 @@ use std::path::{Path, PathBuf};
 // Alternating 0s and 1s give us clear separation between high and low magnitudes
 pub const PILOT_PATTERN: [u8; 8] = [0, 1, 0, 1, 0, 1, 0, 1];
 
-const START_BIN: usize = 10; // embed starting at bin 10
+const START_BIN: usize = 48; // embed starting away from low frequencies to reduce audibility
 
 // Sample normalization divisor for i16 -> f32 conversion
 const SAMPLE_DIVISOR: f32 = 32768.0;
@@ -85,9 +85,8 @@ pub fn encode_audio_samples_with_viz(
     let first_frame_original: Vec<f32> = samples.iter().take(frame_len).copied().collect();
 
     // Convert strength percentage to fraction
-    // We amplify the requested "percent" to make the watermark easier to recover in noisy test audio.
-    // With a 15% floor, divide by 15 so the floor maps to full strength.
-    let strength = (strength_percent as f32 / 15.0).min(1.0);
+    // Keep the watermark subtle: scale more gently so it remains inaudible.
+    let strength = (strength_percent as f32 / 30.0).min(0.5);
 
     // Embed watermark into audio via FFT processing
     let encoded = embed_watermark_fft(samples, &bits, frame_len, strength);
@@ -137,7 +136,7 @@ pub fn encode_sample(message: &str) {
             }
 
             for &strength_percent in WATERMARK_STRENGTHS.iter() {
-                let strength = (strength_percent.max(15) as f32 / 15.0).min(1.0);
+                let strength = (strength_percent.max(15) as f32 / 30.0).min(0.5);
 
                 // Step 3: Embed bits into audio via FFT processing
                 let encoded =
