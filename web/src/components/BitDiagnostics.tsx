@@ -13,7 +13,7 @@ export default function BitDiagnostics({
   scores,
   votes,
   threshold,
-  startBin = 10,
+  startBin = 48,
 }: BitDiagnosticsProps) {
   const scoreCanvasRef = useRef<HTMLCanvasElement>(null);
   const voteCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -149,8 +149,7 @@ export default function BitDiagnostics({
         line: 0.5,
         lineLabel: '0.5',
         barLabels: bitSequence,
-        colorMap: (v, idx) =>
-          v >= 0.5 ? '#FFD700' : '#4169E1',
+        colorMap: (v) => (v >= 0.5 ? '#FFD700' : '#4169E1'),
         suffix: '',
       });
     }

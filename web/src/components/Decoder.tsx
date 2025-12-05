@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { wavFileToSamples } from '../utils/audioUtils';
 import { decodeAudioWithViz, DecodeResult } from '../wasm';
 import WaveformVisualization from './WaveformVisualization';
@@ -13,11 +13,9 @@ export default function Decoder() {
   const [fileName, setFileName] = useState<string | null>(null);
   const [decodeResult, setDecodeResult] = useState<DecodeResult | null>(null);
   const [sampleRate, setSampleRate] = useState<number>(8000);
+  const dropRef = useRef<HTMLDivElement | null>(null);
 
-  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
+  const handleDecodeFile = useCallback(async (file: File) => {
     setFileName(file.name);
     setDecodedMessage(null);
     setDecodedBytes(null);
@@ -40,6 +38,24 @@ export default function Decoder() {
     } finally {
       setIsDecoding(false);
     }
+  }, []);
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    handleDecodeFile(file);
+  };
+
+  const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    const file = event.dataTransfer.files?.[0];
+    if (file) {
+      handleDecodeFile(file);
+    }
+  };
+
+  const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
   };
 
   return (
@@ -47,15 +63,23 @@ export default function Decoder() {
       <h2>Decode Message</h2>
       
       <div className="form-group">
-        <label htmlFor="wav-file">Upload watermarked WAV file:</label>
-        <input
-          id="wav-file"
-          type="file"
-          accept=".wav"
-          onChange={handleFileSelect}
-          disabled={isDecoding}
-        />
-        {fileName && <div className="file-info">Selected: {fileName}</div>}
+        <label htmlFor="wav-file">Drop or select a watermarked WAV file:</label>
+        <div
+          className="drop-zone"
+          onDrop={handleDrop}
+          onDragOver={handleDragOver}
+          ref={dropRef}
+        >
+          <input
+            id="wav-file"
+            type="file"
+            accept=".wav"
+            onChange={handleFileSelect}
+            disabled={isDecoding}
+          />
+          <span>Drop file here, or click to browse</span>
+        </div>
+        {fileName && <div className="file-info">Using: {fileName}</div>}
       </div>
 
       {isDecoding && <div className="decoding-indicator">Decoding...</div>}
@@ -98,7 +122,7 @@ export default function Decoder() {
               votes={decodeResult.visualization.votes}
               threshold={decodeResult.visualization.threshold}
               sampleRate={sampleRate}
-              startBin={10}
+              startBin={48}
               width={1400}
               height={500}
             />
@@ -111,7 +135,7 @@ export default function Decoder() {
               scores={decodeResult.visualization.scores}
               votes={decodeResult.visualization.votes}
               threshold={decodeResult.visualization.threshold}
-              startBin={10}
+              startBin={48}
             />
           </div>
         </div>

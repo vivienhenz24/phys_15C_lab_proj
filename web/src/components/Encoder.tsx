@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import AudioRecorder from './AudioRecorder';
 import { samplesToWav } from '../utils/audioUtils';
 import { encodeAudioWithViz, EncodeResult } from '../wasm';
@@ -13,11 +13,24 @@ export default function Encoder() {
   const [recordedSampleRate, setRecordedSampleRate] = useState<number>(8000);
   const [error, setError] = useState<string | null>(null);
   const [encodeResult, setEncodeResult] = useState<EncodeResult | null>(null);
+  const [playbackUrl, setPlaybackUrl] = useState<string | null>(null);
+  const [originalUrl, setOriginalUrl] = useState<string | null>(null);
   
   // Fixed configuration values
   const FRAME_DURATION_MS = 32;
-  const STRENGTH_PERCENT = 50;
+  const STRENGTH_PERCENT = 15;
   const MAX_MESSAGE_LENGTH = 11;
+
+  useEffect(() => {
+    return () => {
+      if (playbackUrl) {
+        URL.revokeObjectURL(playbackUrl);
+      }
+      if (originalUrl) {
+        URL.revokeObjectURL(originalUrl);
+      }
+    };
+  }, [playbackUrl, originalUrl]);
 
   const handleRecordingComplete = (samples: Float32Array, sampleRate: number) => {
     setRecordedSamples(samples);
@@ -44,8 +57,21 @@ export default function Encoder() {
     setIsEncoding(true);
     setError(null);
     setEncodeResult(null);
+    if (playbackUrl) {
+      URL.revokeObjectURL(playbackUrl);
+      setPlaybackUrl(null);
+    }
+    if (originalUrl) {
+      URL.revokeObjectURL(originalUrl);
+      setOriginalUrl(null);
+    }
 
     try {
+      // Prepare original preview/download
+      const originalBlob = samplesToWav(recordedSamples, recordedSampleRate);
+      const originalObjectUrl = URL.createObjectURL(originalBlob);
+      setOriginalUrl(originalObjectUrl);
+
       // Encode the message into the audio with visualization data
       const result = await encodeAudioWithViz(
         recordedSamples,
@@ -61,13 +87,7 @@ export default function Encoder() {
       const encodedSamples = new Float32Array(result.encoded_samples);
       const wavBlob = samplesToWav(encodedSamples, recordedSampleRate);
       const url = URL.createObjectURL(wavBlob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'watermarked_audio.wav';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      setPlaybackUrl(url);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Encoding failed');
     } finally {
@@ -115,8 +135,32 @@ export default function Encoder() {
         disabled={isEncoding || !recordedSamples || !message.trim()}
         className="encode-button"
       >
-        {isEncoding ? 'Encoding...' : 'Encode & Download WAV'}
+        {isEncoding ? 'Encoding...' : 'Encode & Preview'}
       </button>
+
+      {(playbackUrl || originalUrl) && (
+        <div className="player-card">
+          <div className="player-text">Listen and compare:</div>
+          {originalUrl && (
+            <div className="player-actions column">
+              <span className="player-label">Original</span>
+              <audio controls src={originalUrl} />
+              <a className="download-link" href={originalUrl} download="original_audio.wav">
+                Download original
+              </a>
+            </div>
+          )}
+          {playbackUrl && (
+            <div className="player-actions column">
+              <span className="player-label">Watermarked</span>
+              <audio controls src={playbackUrl} />
+              <a className="download-link" href={playbackUrl} download="watermarked_audio.wav">
+                Download watermarked
+              </a>
+            </div>
+          )}
+        </div>
+      )}
 
       {error && <div className="error-message">{error}</div>}
 
@@ -138,7 +182,7 @@ export default function Encoder() {
                 audioFrame={encodeResult.visualization.watermarked_frame}
                 bitSequence={encodeResult.visualization.bit_sequence}
                 sampleRate={recordedSampleRate}
-                startBin={10}
+                startBin={48}
                 width={1200}
                 height={360}
               />

@@ -7,7 +7,7 @@ interface FrequencyDomainVisualizationProps {
   votes?: number[];
   threshold?: number;
   sampleRate: number;
-  startBin?: number; // First watermark bin (default 10)
+  startBin?: number; // First watermark bin (default 48)
   height?: number;
   width?: number;
 }
@@ -19,7 +19,7 @@ export default function FrequencyDomainVisualization({
   votes,
   threshold,
   sampleRate,
-  startBin = 10,
+  startBin = 48,
   height = 480,
   width = 1400,
 }: FrequencyDomainVisualizationProps) {

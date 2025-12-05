@@ -108,6 +108,35 @@
   min-height: 100px;
 }
 
+.drop-zone {
+  position: relative;
+  margin-top: 0.5rem;
+  padding: 1.25rem;
+  border: 2px dashed rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+  background-color: rgba(255, 255, 255, 0.04);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #9ca3af;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.drop-zone:hover {
+  border-color: rgba(59, 130, 246, 0.6);
+  color: #d1d5db;
+}
+
+.drop-zone input[type="file"] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+}
+
 .record-button,
 .stop-button,
 .encode-button {
@@ -238,6 +267,48 @@
   word-break: break-word;
   margin-bottom: 1rem;
   border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.player-card {
+  margin-top: 1.25rem;
+  padding: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.player-text {
+  font-weight: 600;
+  opacity: 0.9;
+}
+
+.player-actions {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.player-actions.column {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.player-label {
+  font-weight: 600;
+  color: #d1d5db;
+}
+
+.download-link {
+  color: #3b82f6;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.download-link:hover {
+  text-decoration: underline;
 }
 
 .bytes-display {

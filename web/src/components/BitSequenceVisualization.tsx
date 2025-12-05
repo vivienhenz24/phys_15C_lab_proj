@@ -112,7 +112,7 @@ export default function BitSequenceVisualization({
     return groups;
   }, [bitSequence]);
 
-  const getBitColor = (bit: number, idx: number): string => {
+  const getBitColor = (bit: number): string => {
     if (bit === 1) return '#FFD700'; // Gold for 1
     return '#4169E1'; // Royal blue for 0
   };
@@ -145,7 +145,7 @@ export default function BitSequenceVisualization({
               {group.bits.map((bit, bitIdx) => {
                 const globalIdx = group.startIdx + bitIdx;
                 const confidence = getBitConfidence(globalIdx);
-                const bitColor = getBitColor(bit, globalIdx);
+                const bitColor = getBitColor(bit);
                 
                 return (
                   <div
@@ -217,4 +217,3 @@ export default function BitSequenceVisualization({
     </div>
   );
 }
-
