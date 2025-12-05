@@ -77,6 +77,17 @@ export default function Decoder() {
       {decodeResult && decodeResult.visualization.first_frame.length > 0 && (
         <div className="visualization-section">
           <h3>Decoding Visualization</h3>
+
+          <div className="waveform-section">
+            <h4>Captured 32ms Frame</h4>
+            <WaveformVisualization
+              originalFrame={decodeResult.visualization.first_frame}
+              watermarkedFrame={decodeResult.visualization.first_frame}
+              sampleRate={sampleRate}
+              leftLabel="Watermarked Audio (32ms frame)"
+              rightLabel="Same frame (for comparison)"
+            />
+          </div>
           
           <div className="frequency-domain-section">
             <h4>Frequency Domain - Decoded Bits</h4>

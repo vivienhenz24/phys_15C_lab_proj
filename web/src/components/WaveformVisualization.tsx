@@ -4,12 +4,16 @@ interface WaveformVisualizationProps {
   originalFrame: Float32Array | number[];
   watermarkedFrame: Float32Array | number[];
   sampleRate: number;
+  leftLabel?: string;
+  rightLabel?: string;
 }
 
 export default function WaveformVisualization({
   originalFrame,
   watermarkedFrame,
   sampleRate,
+  leftLabel = 'Original Audio (32ms frame)',
+  rightLabel = 'Watermarked Audio (32ms frame)',
 }: WaveformVisualizationProps) {
   const canvasRef1 = useRef<HTMLCanvasElement>(null);
   const canvasRef2 = useRef<HTMLCanvasElement>(null);
@@ -99,7 +103,7 @@ export default function WaveformVisualization({
         canvasRef1.current,
         originalFrame,
         '#4169E1',
-        'Original Audio (32ms frame)'
+        leftLabel
       );
     }
 
@@ -108,10 +112,10 @@ export default function WaveformVisualization({
         canvasRef2.current,
         watermarkedFrame,
         '#FF6B6B',
-        'Watermarked Audio (32ms frame)'
+        rightLabel
       );
     }
-  }, [originalFrame, watermarkedFrame, sampleRate]);
+  }, [originalFrame, watermarkedFrame, sampleRate, leftLabel, rightLabel]);
 
   return (
     <div className="waveform-visualization">

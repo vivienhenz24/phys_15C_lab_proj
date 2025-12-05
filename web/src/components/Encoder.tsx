@@ -4,6 +4,7 @@ import { samplesToWav } from '../utils/audioUtils';
 import { encodeAudioWithViz, EncodeResult } from '../wasm';
 import WaveformVisualization from './WaveformVisualization';
 import BitSequenceVisualization from './BitSequenceVisualization';
+import FrequencyDomainVisualization from './FrequencyDomainVisualization';
 
 export default function Encoder() {
   const [message, setMessage] = useState('');
@@ -16,6 +17,7 @@ export default function Encoder() {
   // Fixed configuration values
   const FRAME_DURATION_MS = 32;
   const STRENGTH_PERCENT = 50;
+  const MAX_MESSAGE_LENGTH = 11;
 
   const handleRecordingComplete = (samples: Float32Array, sampleRate: number) => {
     setRecordedSamples(samples);
@@ -31,6 +33,11 @@ export default function Encoder() {
 
     if (!message.trim()) {
       setError('Please enter a message to encode');
+      return;
+    }
+
+    if (message.length > MAX_MESSAGE_LENGTH) {
+      setError(`Message is too long. Maximum ${MAX_MESSAGE_LENGTH} characters allowed.`);
       return;
     }
 
@@ -73,13 +80,23 @@ export default function Encoder() {
       <h2>Encode Message</h2>
       
       <div className="form-group">
-        <label htmlFor="message">Message to encode:</label>
+        <label htmlFor="message">
+          Message to encode:
+          <span className="char-count">
+            {message.length}/{MAX_MESSAGE_LENGTH}
+          </span>
+        </label>
         <textarea
           id="message"
           value={message}
-          onChange={(e) => setMessage(e.target.value)}
+          onChange={(e) => {
+            if (e.target.value.length <= MAX_MESSAGE_LENGTH) {
+              setMessage(e.target.value);
+            }
+          }}
           placeholder="Enter your message here..."
           rows={3}
+          maxLength={MAX_MESSAGE_LENGTH}
         />
       </div>
 
@@ -114,6 +131,18 @@ export default function Encoder() {
               watermarkedFrame={encodeResult.visualization.watermarked_frame}
               sampleRate={recordedSampleRate}
             />
+
+            <div className="frequency-domain-section">
+              <h4>Frequency Domain (Watermarked 32ms frame)</h4>
+              <FrequencyDomainVisualization
+                audioFrame={encodeResult.visualization.watermarked_frame}
+                bitSequence={encodeResult.visualization.bit_sequence}
+                sampleRate={recordedSampleRate}
+                startBin={10}
+                width={1200}
+                height={360}
+              />
+            </div>
           </div>
 
           <div className="bit-sequence-section">
@@ -126,4 +155,3 @@ export default function Encoder() {
     </div>
   );
 }
-
