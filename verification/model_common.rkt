@@ -4,6 +4,7 @@
  START-BIN PILOT LENGTH-HEADER-BITS MSG-LEN TOTAL-BITS
  MESSAGE-BITS message-bytes bits-of-bv
  strength-from-percent scale-for-bit
+ score-separation-constraints
  sample-rate frame-ms frame-len fft-len spectrum-len strength-percent
  apply-domain-constraints
  usable-bins required-bins
