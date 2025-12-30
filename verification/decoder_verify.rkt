@@ -12,7 +12,7 @@
   (verify
    (begin
      (define-symbolic high low real?)
-     (assume (> high low))
+     (score-separation-constraints high low)
      (define scores (build-pilot-scores high low))
      (define stats (frame-pilot-stats scores))
      (assert stats)
@@ -23,8 +23,10 @@
   (verify
    (begin
      (define-symbolic high low real?)
-     (assume (< high low))
-     (define scores (build-pilot-scores high low))
+     (score-separation-constraints low high)
+     (define high* low)
+     (define low* high)
+     (define scores (build-pilot-scores high* low*))
      (define stats (frame-pilot-stats scores))
      (assert stats)
      (assert (= (list-ref stats 2) #t))
@@ -34,7 +36,7 @@
   (verify
    (begin
      (define-symbolic high low real?)
-     (assume (> high low))
+     (score-separation-constraints high low)
      (define avg-high high)
      (define avg-low low)
      (define threshold (* 0.5 (+ high low)))

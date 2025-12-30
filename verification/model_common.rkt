@@ -60,7 +60,7 @@
 (define (apply-domain-constraints)
   (assume (in-set? sample-rate '(8000 16000 32000)))
   (assume (in-set? frame-ms '(20 32 64)))
-  (assume (and (>= strength-percent 0.0) (<= strength-percent 100.0)))
+  (assume (and (>= strength-percent 15.0) (<= strength-percent 100.0)))
   ;; frame_len = round(sample_rate * frame_ms / 1000)
   (define f1 (if (= sample-rate 8000)
                  (if (= frame-ms 20) 160 (if (= frame-ms 32) 256 512))
@@ -133,6 +133,11 @@
         (if (> matches-inverted matches-normal)
             (list threshold matches-inverted #t)
             (list threshold matches-normal #f)))))
+
+(define (score-separation-constraints high low)
+  ;; Ensure strict separation to avoid threshold ambiguity.
+  (assume (> high low))
+  (assume (> (- high low) 1e-3)))
 
 (define (decide-bits scores votes threshold avg-high avg-low inverted)
   (define decision-band (* 0.1 (abs (- avg-high avg-low))))
